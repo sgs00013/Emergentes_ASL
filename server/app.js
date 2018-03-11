@@ -6,33 +6,40 @@
 var express = require('express');
 var bodyParser=require("body-parser");
 var app = express();
+var requestify = require('requestify');
+
+//Datos de Wit.ai
 const {Wit, log} = require('node-wit');
 const client = new Wit({accessToken: 'SD2COMH4TJHOEWNCSJGEBJOFBTAPFQX3'});
-const {interactive} = require('node-wit');
+
+//Datos de Facebook
+var acces_token='EAAGOL5D1Yc0BANRBaEZAKGLNmnDJMYZCimfQR93wwD8XEBdFzR3y0hxFiAuagWicXuuu9pcZBZBldwgcEvdaRhqwLprCVFxzMB4ChZCgOFXm9VEnVxXpO5N8EWLDxhU8V6A8f2rbBWmKmo6n3wXuRmbtMeph31Gs7WHr3dfBQmU3QA9T9jKZCF';
+var url='https://graph.facebook.com/v2.6/me/messages?access_token='+acces_token;
+
 
 app.use(bodyParser.json());
+app.use(express.static('public'));
 app.set("view engine", "ejs");
-console.log("Programa ejecutado");
 
 function responseBot(intent){
 	var msg;
-	switch(msg)
+	console.log(intent);
+	switch(intent)
 	{
 		case "acc":
-			msg = "Dirígete a cuenta";
+			msg = "Diríjase a la parte superior izquierda y pulse en Log up";
 		break;
 		
 		case "recordar":
-			msg = "Acuerdate";
+			msg = "En el menú inicial pulse la opción de recuperar cuenta";
 		break;
 		
 		case "upload":
-			msg = "Subir la aplicación";
+			msg = "Vaya a la pestaña Upload app y dale click a Subir aplicación";
 		break;
 			
-		case "error":
-			msg = "No te entiendo";
-		break;
+		default:
+			msg = "No te entiendo, expliquemelo de otra forma";
 	}
 	return msg;
 }
@@ -40,37 +47,42 @@ function responseBot(intent){
 function getValue(data){
 	var content = JSON.stringify(data);
 	var msg = JSON.parse(content);
+	console.log(msg);
 	
-	if(msg.hasOwnProperty('entities'))
+	if(!msg.entities.hasOwnProperty('intent'))
 		return "error";
 	else
 		return (msg.entities.intent[0].value);
 }
 
 
-app.get("/practica0", function (req,res){
+app.get("/practica", function (req,res){
 	res.render("index",{challenge:req.query['hub.challenge']});
-}).listen(80);
+	console.log("Verificacion del challenge");
+});
 
-app.post("/practica0" , function (req,res){
+app.post("/practica", function (req,res){
 var input = req.body;
-var sender_id = input.entry[0].messaging[0].sender.id;
-var message = input.entry[0].messaging[0].message.text;	
+if (input.entry[0].messaging[0].message != ' '){
+	var sender_id = input.entry[0].messaging[0].sender.id;
+	var message = input.entry[0].messaging[0].message.text;
 
 client.message(message, {})
 .then((data) => {
   console.log(JSON.stringify(data));
   var intent = getValue(data);
   var msg = responseBot(intent);
-  console.log(msg);
-})
-.catch(console.error);
+  var response={"recipient": {"id": sender_id},"message": {"text": 'Echo: '+msg}};
+  requestify.post(url,response).then(function(response) {});
+});
 
-var response={"recipient": {"id": sender_id},"message": {"text": 'Echo: '+msg}};
-var url='https://graph.facebook.com/v2.6/me/messages?access_token='+access_token;
-requestify.post(url,response).then(function(response) {});
 
-}).listen(80); //¿Puerto?
+res.render("index",{challenge: {status:200}});
+}
+
+});
+
+app.listen(80);
 
 
 
